@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Tests",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "dotnet",
+            "args": [
+                "test",
+                "${workspaceFolder}/tests/Jborean.PwshAsync.Tests/Jborean.PwshAsync.Tests.csproj",
+                "--no-build"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": "Interactive PowerShell - SampleCmdlet",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "pwsh",
+            "args": [
+                "-NoExit",
+                "-NoLogo",
+                "-Command",
+                "Import-Module ${workspaceFolder}/tests/SampleCmdlet/bin/Debug/net9.0/SampleCmdlet.dll; Write-Host 'SampleCmdlet loaded. Try: Test-AsyncCmdlet' -ForegroundColor Green"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
+        }
+    ]
+}

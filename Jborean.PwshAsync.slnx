@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EmbeddedText.Generator/EmbeddedText.Generator.csproj" />
+    <Project Path="src/Jborean.PwshAsync/Jborean.PwshAsync.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Jborean.PwshAsync.Tests/Jborean.PwshAsync.Tests.csproj" />
+    <Project Path="tests/SampleCmdlet/SampleCmdlet.csproj" />
+  </Folder>
+</Solution>
