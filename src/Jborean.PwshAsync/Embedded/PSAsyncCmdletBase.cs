@@ -2,8 +2,8 @@
 
 namespace NamespaceReplaceMe
 {
-    public abstract partial class AsyncPSCmdletBase<TAsyncCmdlet> : global::System.Management.Automation.PSCmdlet, global::System.IDisposable
-        where TAsyncCmdlet : global::NamespaceReplaceMe.AsyncPSCmdlet, new()
+    public abstract partial class PSAsyncCmdletBase<TAsyncCmdlet> : global::System.Management.Automation.PSCmdlet, global::System.IDisposable
+        where TAsyncCmdlet : global::NamespaceReplaceMe.PSAsyncCmdlet, new()
     {
         private class AsyncHelper : global::NamespaceReplaceMe.IAsyncHelper, global::System.IDisposable
         {
@@ -40,7 +40,7 @@ namespace NamespaceReplaceMe
         // properties in SyncInitialProperties and SyncPipelineProperties.
         private protected readonly TAsyncCmdlet _asyncCmdlet;
 
-        protected AsyncPSCmdletBase()
+        protected PSAsyncCmdletBase()
         {
             _asyncHelper = new(this);
             _pipelineStopTokenRegistration = PipelineStopToken.Register(() =>

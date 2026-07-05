@@ -5,8 +5,8 @@ using Jborean.PwshAsync;
 
 namespace SampleCmdlet;
 
-[AsyncPSCmdlet(VerbsDiagnostic.Test, "SimpleCmdletBlocks")]
-public partial class TestSimpleCmdletBlocks : AsyncPSCmdlet<string>
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "SimpleCmdletBlocks")]
+public partial class TestSimpleCmdletBlocks : PSAsyncCmdlet<string>
 {
     protected override Task BeginAsync(CancellationToken cancellationToken)
         => WriteAsync("BeginAsync", cancellationToken);

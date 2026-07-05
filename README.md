@@ -35,8 +35,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jborean.PwshAsync;
 
-[AsyncPSCmdlet(VerbsDiagnostic.Test, "AsyncExample")]
-public partial class TestAsyncExampleCmdlet : AsyncPSCmdlet<string>
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "AsyncExample")]
+public partial class TestAsyncExampleCmdlet : PSAsyncCmdlet<string>
 {
     [Parameter(Mandatory = true)]
     public string Name { get; set; } = "";
@@ -63,12 +63,12 @@ Test-AsyncExample -Name "World" -Verbose
 
 ## API
 
-### AsyncPSCmdlet
+### PSAsyncCmdlet
 
-Base class for async cmdlets. Inherit from this for cmdlets without typed output, or use `AsyncPSCmdlet<T>` for typed output.
+Base class for async cmdlets. Inherit from this for cmdlets without typed output, or use `PSAsyncCmdlet<T>` for typed output.
 
 ```csharp
-public abstract class AsyncPSCmdlet : IDisposable
+public abstract class PSAsyncCmdlet : IDisposable
 {
     // Async block methods, define these to run each block in an async
     // context.
@@ -121,12 +121,12 @@ public abstract class AsyncPSCmdlet : IDisposable
 }
 ```
 
-### AsyncPSCmdlet&lt;T&gt;
+### PSAsyncCmdlet&lt;T&gt;
 
 Generic base class for async cmdlets with typed output.
 
 ```csharp
-public abstract class AsyncPSCmdlet<T> : AsyncPSCmdlet
+public abstract class PSAsyncCmdlet<T> : PSAsyncCmdlet
 {
     // WriteObject equivalent but typed to the cmdlet's declared output
     // type. Use PSObject as T if writing multiple output types.
@@ -148,15 +148,15 @@ public class ShouldContinueResult
 }
 ```
 
-### AsyncPSCmdletAttribute
+### PSAsyncCmdletAttribute
 
 Attribute for marking async cmdlets. Supports all `CmdletAttribute` properties.
 
 ```csharp
 [AttributeUsage(AttributeTargets.Class)]
-public class AsyncPSCmdletAttribute : Attribute
+public class PSAsyncCmdletAttribute : Attribute
 {
-    public AsyncPSCmdletAttribute(string verb, string noun);
+    public PSAsyncCmdletAttribute(string verb, string noun);
 
     public string Verb { get; }
     public string Noun { get; }
@@ -178,9 +178,9 @@ TODO: Fill this in.
 
 The source generator:
 
-1. Detects classes marked with `[AsyncPSCmdlet]` attribute
+1. Detects classes marked with `[PSAsyncCmdlet]` attribute
 2. Generates a PowerShell-compatible `PSCmdlet` wrapper class
-3. Calls the required blocks on the user defined `AsyncPSCmdlet` class
+3. Calls the required blocks on the user defined `PSAsyncCmdlet` class
 4. Provides a mechanism to perform PSCmdlet operations on the PSCmdlet/pipeline thread and await the result
 
 All cmdlet features work as expected:

@@ -3,9 +3,9 @@ namespace Jborean.PwshAsync
 {
     [global::Microsoft.CodeAnalysis.EmbeddedAttribute]
     [global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-    internal class AsyncPSCmdletAttribute : global::System.Attribute
+    internal class PSAsyncCmdletAttribute : global::System.Attribute
     {
-        public AsyncPSCmdletAttribute(string verb, string noun)
+        public PSAsyncCmdletAttribute(string verb, string noun)
         {
             Verb = verb;
             Noun = noun;

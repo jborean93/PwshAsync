@@ -5,13 +5,13 @@ namespace NamespaceReplaceMe
     /// <summary>
     /// Base class for async PowerShell cmdlets.
     /// User cmdlets should inherit from this class and override the async lifecycle methods.
-    /// Use AsyncPSCmdlet<T> for cmdlets that need to output objects, this class is for cmdlets
+    /// Use PSAsyncCmdlet<T> for cmdlets that need to output objects, this class is for cmdlets
     /// that do not output objects.
     /// </summary>
-    public abstract class AsyncPSCmdlet : global::System.IDisposable
+    public abstract class PSAsyncCmdlet : global::System.IDisposable
     {
         // So we can keep an empty ctor for derived classes we pretend
-        // _asyncHelper is not null. AsyncPSCmdletBase calls
+        // _asyncHelper is not null. PSAsyncCmdletBase calls
         // InternalSetAsyncHelper to set the actual helper instance.
         private global::NamespaceReplaceMe.IAsyncHelper _asyncHelper = default!;
         internal void InternalSetAsyncHelper(
@@ -495,7 +495,7 @@ namespace NamespaceReplaceMe
     /// Provides WriteAsync method for writing strongly-typed objects to the pipeline.
     /// </summary>
     /// <typeparam name="T">The output type of the cmdlet.</typeparam>
-    public abstract class AsyncPSCmdlet<T> : global::NamespaceReplaceMe.AsyncPSCmdlet
+    public abstract class PSAsyncCmdlet<T> : global::NamespaceReplaceMe.PSAsyncCmdlet
     {
         /// <summary>
         /// Writes an object to the output pipeline asynchronously.
