@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using System.Collections.Generic;
@@ -27,6 +28,9 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
         context.RegisterPostInitializationOutput(ctx =>
         {
             ctx.AddEmbeddedAttributeDefinition();
+            ctx.AddSource(
+                "PSAsyncThrowTerminatingException.g.cs",
+                SourceText.From(Embedded.PSAsyncThrowTerminatingException, Encoding.UTF8));
             ctx.AddSource(
                 "PSAsyncCmdletAttribute.g.cs",
                 SourceText.From(Embedded.PSAsyncCmdletAttribute, Encoding.UTF8));
@@ -91,13 +95,18 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             return false;
         }
 
-        // Check if it has a PipelineStopToken property
-        foreach (ISymbol member in psCmdletType.GetMembers("PipelineStopToken"))
+        // Check if it or any base type has a PipelineStopToken property
+        INamedTypeSymbol? currentType = psCmdletType;
+        while (currentType != null)
         {
-            if (member is IPropertySymbol)
+            foreach (ISymbol member in currentType.GetMembers("PipelineStopToken"))
             {
-                return true;
+                if (member is IPropertySymbol)
+                {
+                    return true;
+                }
             }
+            currentType = currentType.BaseType;
         }
 
         return false;
@@ -133,38 +142,35 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
         string noun = attribute.ConstructorArguments[1].Value?.ToString() ?? "Item";
 
         // Extract named properties from the attribute
-        int? confirmImpact = null;
+        // Use ToCSharpString() to get the C# representation which handles enums, casts, etc.
+        string? confirmImpact = null;
         string? defaultParameterSetName = null;
         string? helpUri = null;
-        int? remotingCapability = null;
-        bool? supportsPaging = null;
-        bool? supportsShouldProcess = null;
-        bool? supportsTransactions = null;
+        string? remotingCapability = null;
+        string? supportsPaging = null;
+        string? supportsShouldProcess = null;
 
         foreach (var namedArg in attribute.NamedArguments)
         {
             switch (namedArg.Key)
             {
                 case "ConfirmImpact":
-                    confirmImpact = (int?)namedArg.Value.Value;
+                    confirmImpact = namedArg.Value.ToCSharpString();
                     break;
                 case "DefaultParameterSetName":
-                    defaultParameterSetName = namedArg.Value.Value?.ToString();
+                    defaultParameterSetName = namedArg.Value.ToCSharpString();
                     break;
                 case "HelpUri":
-                    helpUri = namedArg.Value.Value?.ToString();
+                    helpUri = namedArg.Value.ToCSharpString();
                     break;
                 case "RemotingCapability":
-                    remotingCapability = (int?)namedArg.Value.Value;
+                    remotingCapability = namedArg.Value.ToCSharpString();
                     break;
                 case "SupportsPaging":
-                    supportsPaging = (bool?)namedArg.Value.Value;
+                    supportsPaging = namedArg.Value.ToCSharpString();
                     break;
                 case "SupportsShouldProcess":
-                    supportsShouldProcess = (bool?)namedArg.Value.Value;
-                    break;
-                case "SupportsTransactions":
-                    supportsTransactions = (bool?)namedArg.Value.Value;
+                    supportsShouldProcess = namedArg.Value.ToCSharpString();
                     break;
             }
         }
@@ -183,8 +189,7 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             HelpUri: helpUri,
             RemotingCapability: remotingCapability,
             SupportsPaging: supportsPaging,
-            SupportsShouldProcess: supportsShouldProcess,
-            SupportsTransactions: supportsTransactions);
+            SupportsShouldProcess: supportsShouldProcess);
     }
 
     private static ImmutableArray<PropertyInfo> DiscoverProperties(INamedTypeSymbol classSymbol)
@@ -330,6 +335,18 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             return "null";
         }
 
+        if (constant.Kind == TypedConstantKind.Array)
+        {
+            // Handle array values (e.g., ValidateSet values)
+            ImmutableArray<TypedConstant> values = constant.Values;
+            string[] formattedValues = new string[values.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                formattedValues[i] = FormatTypedConstant(values[i]);
+            }
+            return $"new[] {{ {string.Join(", ", formattedValues)} }}";
+        }
+
         if (constant.Kind == TypedConstantKind.Enum && constant.Type != null)
         {
             return $"global::{constant.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted))}.{constant.Value}";
@@ -371,33 +388,30 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
         sb.Append($"    [global::System.Management.Automation.Cmdlet(\"{cmdlet.Verb}\", \"{cmdlet.Noun}\"");
 
         // Add optional CmdletAttribute properties if set
-        if (cmdlet.ConfirmImpact.HasValue)
+        // Use ToCSharpString() values directly - they're already properly formatted C# code
+        if (cmdlet.ConfirmImpact is not null)
         {
-            sb.Append($", ConfirmImpact = (global::System.Management.Automation.ConfirmImpact){cmdlet.ConfirmImpact.Value}");
+            sb.Append($", ConfirmImpact = global::{cmdlet.ConfirmImpact}");
         }
         if (cmdlet.DefaultParameterSetName != null)
         {
-            sb.Append($", DefaultParameterSetName = \"{cmdlet.DefaultParameterSetName}\"");
+            sb.Append($", DefaultParameterSetName = {cmdlet.DefaultParameterSetName}");
         }
         if (cmdlet.HelpUri != null)
         {
-            sb.Append($", HelpUri = \"{cmdlet.HelpUri}\"");
+            sb.Append($", HelpUri = {cmdlet.HelpUri}");
         }
-        if (cmdlet.RemotingCapability.HasValue)
+        if (cmdlet.RemotingCapability != null)
         {
-            sb.Append($", RemotingCapability = (global::System.Management.Automation.RemotingCapability){cmdlet.RemotingCapability.Value}");
+            sb.Append($", RemotingCapability = global::{cmdlet.RemotingCapability}");
         }
-        if (cmdlet.SupportsPaging.HasValue)
+        if (cmdlet.SupportsPaging != null)
         {
-            sb.Append($", SupportsPaging = {cmdlet.SupportsPaging.Value.ToString().ToLowerInvariant()}");
+            sb.Append($", SupportsPaging = {cmdlet.SupportsPaging}");
         }
-        if (cmdlet.SupportsShouldProcess.HasValue)
+        if (cmdlet.SupportsShouldProcess != null)
         {
-            sb.Append($", SupportsShouldProcess = {cmdlet.SupportsShouldProcess.Value.ToString().ToLowerInvariant()}");
-        }
-        if (cmdlet.SupportsTransactions.HasValue)
-        {
-            sb.Append($", SupportsTransactions = {cmdlet.SupportsTransactions.Value.ToString().ToLowerInvariant()}");
+            sb.Append($", SupportsShouldProcess = {cmdlet.SupportsShouldProcess}");
         }
 
         sb.AppendLine(")]");
@@ -414,11 +428,7 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             }
 
             sb.Append($"        public {prop.Type} {prop.Name} {{ get;");
-            if (prop.IsInitOnly)
-            {
-                sb.Append(" init;");
-            }
-            else if (prop.HasSetter)
+            if (prop.HasSetter)
             {
                 sb.Append(" set;");
             }
@@ -511,21 +521,21 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
 
         if (hasPipelineStopToken)
         {
-            // S.M.A 7.7.0+ has PipelineStopToken - no shim needed
+            // S.M.A 7.6.0+ has PipelineStopToken - no shim needed
             sb.AppendLine("    public abstract partial class PSAsyncCmdletBase<TAsyncCmdlet>");
             sb.AppendLine("    {");
-            sb.AppendLine("        // PipelineStopToken is provided by PSCmdlet base class (S.M.A 7.7.0+)");
+            sb.AppendLine("        // PipelineStopToken is provided by PSCmdlet base class (S.M.A 7.6.0+)");
             sb.AppendLine("        // No additional implementation needed");
             sb.AppendLine("    }");
         }
         else
         {
-            // S.M.A < 7.7.0 - provide PipelineStopToken shim using CancellationTokenSource
+            // S.M.A < 7.6.0 - provide PipelineStopToken shim using CancellationTokenSource
             sb.AppendLine("    public abstract partial class PSAsyncCmdletBase<TAsyncCmdlet>");
             sb.AppendLine("    {");
             sb.AppendLine("        private readonly global::System.Threading.CancellationTokenSource _cancelSource = new();");
             sb.AppendLine();
-            sb.AppendLine("        // PipelineStopToken shim for S.M.A < 7.7.0");
+            sb.AppendLine("        // PipelineStopToken shim for S.M.A < 7.6.0");
             sb.AppendLine("        internal global::System.Threading.CancellationToken PipelineStopToken => _cancelSource.Token;");
             sb.AppendLine();
             sb.AppendLine("        protected override void StopProcessing()");

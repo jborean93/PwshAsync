@@ -1,0 +1,99 @@
+name: Test Jborean.PwshAsync
+on:
+  push:
+    branches:
+    - main
+
+  pull_request:
+    branches:
+    - main
+
+  release:
+    types:
+    - published
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  POWERSHELL_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+  BUILD_CONFIGURATION: ${{ fromJSON('["Debug", "Release"]')[github.ref == 'refs/heads/main' || startsWith(github.event.release.tag_name, 'v')] }}
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v7
+
+    - name: Build NuGet Package
+      shell: pwsh
+      run: ./build.ps1 -Configuration $env:BUILD_CONFIGURATION -Task Build
+
+    - name: Upload NuGet Package
+      uses: actions/upload-artifact@v7
+      with:
+        name: NuGetPackage
+        path: output/*.nupkg
+
+  test:
+    name: test
+    needs:
+    - build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v7
+
+    - name: Download NuGet Package
+      uses: actions/download-artifact@v8
+      with:
+        name: NuGetPackage
+        path: output
+
+    - name: Run Tests with Package Reference
+      shell: pwsh
+      run: |
+        ./build.ps1 -Configuration $env:BUILD_CONFIGURATION -Task Test -UsePackage
+
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: Test Results (${{ matrix.os }})
+        path: ./output/TestResults/Pester.xml
+
+  publish:
+    name: publish
+    needs:
+    - test
+    if: startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download NuGet Package
+      uses: actions/download-artifact@v8
+      with:
+        name: NuGetPackage
+        path: output
+
+    - name: Publish to NuGet.org
+      run: dotnet nuget push output/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+
+    - name: Upload to GitHub Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release upload \
+          "${{ github.event.release.tag_name }}" \
+          output/*.nupkg \
+          --repo "${{ github.repository }}"

@@ -3,6 +3,9 @@
         "**/bin": true,
         "**/obj": true
     },
+    "files.trimTrailingWhitespace": true,
     "dotnet.defaultSolution": "Jborean.PwshAsync.slnx",
-    "omnisharp.enableEditorConfigSupport": true
+    "omnisharp.enableEditorConfigSupport": true,
+    "powershell.pester.useLegacyCodeLens": false,
+    "powershell.debugging.createTemporaryIntegratedConsole": true
 }

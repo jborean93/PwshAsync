@@ -39,45 +39,6 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "test",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "test",
-                "${workspaceFolder}/tests/Jborean.PwshAsync.Tests/Jborean.PwshAsync.Tests.csproj"
-            ],
-            "problemMatcher": "$msCompile",
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            }
-        },
-        {
-            "label": "test (verbose)",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "test",
-                "${workspaceFolder}/tests/Jborean.PwshAsync.Tests/Jborean.PwshAsync.Tests.csproj",
-                "-v",
-                "normal"
-            ],
-            "problemMatcher": "$msCompile",
-            "group": "test"
-        },
-        {
-            "label": "watch tests",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "watch",
-                "test",
-                "${workspaceFolder}/tests/Jborean.PwshAsync.Tests/Jborean.PwshAsync.Tests.csproj"
-            ],
-            "problemMatcher": "$msCompile",
-            "isBackground": true
-        },
-        {
             "label": "restore",
             "command": "dotnet",
             "type": "process",
