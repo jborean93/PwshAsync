@@ -98,7 +98,7 @@ public abstract class PSAsyncCmdlet : IDisposable
     protected Task<ShouldContinueResult> ShouldContinueAsync(string query, string caption, bool yesToAll, bool noToAll, CancellationToken cancellationToken);
 
     // Error handling
-    protected Task ThrowTerminatingErrorAsync(ErrorRecord errorRecord, CancellationToken cancellationToken);
+    protected void ThrowTerminatingError(ErrorRecord errorRecord);
     protected Task WriteErrorAsync(ErrorRecord errorRecord, CancellationToken cancellationToken);
 
     // PowerShell streams

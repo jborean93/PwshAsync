@@ -423,3 +423,6 @@ $RECYCLE.BIN/
 # Test Results
 TestResults/
 *.trx
+
+# Project Build
+output/

@@ -6,7 +6,24 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
+
+    <!--
+      This ignores the following warning:
+      "NU5128: some target frameworks declared in the dependencies group of the nuspec and the lib/ref folder do not
+      have exact matches in the other location. [...] Add lib or ref assemblies for the netstandard2.0 target framework."
+      This happens because the package only includes an analyzer, and no binaries to reference at runtime at all.
+    -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <!-- NuGet package info -->
+  <PropertyGroup>
+    <Title>Jborean.PwshAsync</Title>
+    <Description>Jborean.PwshAsync provides generated PSCmdlet implementations for async friendly PowerShell cmdlets.</Description>
+    <PackageId>Jborean.PwshAsync</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/jborean93/Jborean.PwshAsync/</PackageProjectUrl>
+    <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
 
   <ItemGroup>

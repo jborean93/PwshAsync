@@ -8,10 +8,9 @@ internal record CmdletInfo(
     string Verb,
     string Noun,
     ImmutableArray<PropertyInfo> Properties,
-    int? ConfirmImpact,
+    string? ConfirmImpact,
     string? DefaultParameterSetName,
     string? HelpUri,
-    int? RemotingCapability,
-    bool? SupportsPaging,
-    bool? SupportsShouldProcess,
-    bool? SupportsTransactions);
+    string? RemotingCapability,
+    string? SupportsPaging,
+    string? SupportsShouldProcess);

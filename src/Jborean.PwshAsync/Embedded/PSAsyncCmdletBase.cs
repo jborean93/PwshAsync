@@ -95,6 +95,12 @@ namespace NamespaceReplaceMe
         {
             beforeBlock();
 
+            if (PipelineStopToken.IsCancellationRequested)
+            {
+                // Pipeline has been stopped - skip the remaining blocks
+                return;
+            }
+
             try
             {
                 _asyncHelper.InAsyncBlock = true;
@@ -142,9 +148,21 @@ namespace NamespaceReplaceMe
                     // Expected when PipelineStopToken is cancelled
                 }
             }
+            catch (global::Jborean.PwshAsync.PSAsyncThrowTerminatingException ex)
+            {
+                // Used as a signal from the async task to throw a terminating
+                // error on the real PSCmdlet instance.
+                ThrowTerminatingError(ex.ErrorRecord);
+            }
             finally
             {
                 _asyncHelper.InAsyncBlock = false;
+            }
+
+            if (PipelineStopToken.IsCancellationRequested)
+            {
+                // Pipeline has been stopped - skip the after block
+                return;
             }
 
             afterBlock();

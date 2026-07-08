@@ -3,9 +3,10 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
-    <IsRoslynAnalyzer>true</IsRoslynAnalyzer>
+    <IsRoslynComponent>true</IsRoslynComponent>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>

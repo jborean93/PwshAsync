@@ -255,20 +255,27 @@ namespace NamespaceReplaceMe
 
         /// <summary>
         /// Terminates the currently running cmdlet with a terminating error.
-        /// The returned task will throw a PipelineStoppedException when awaited.
+        /// This method never returns; it throws a special exception to signal
+        /// the termination of the cmdlet through the real PSCmdlet instance.
         /// </summary>
+        /// <remarks>
+        /// This method should only be called from within the BeginAsync, ProcessAsync, or EndAsync methods.
+        /// If called from outside these methods, an InvalidOperationException will be thrown.
+        /// </remarks>
         /// <param name="errorRecord">The error record that describes the terminating error.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>A task that will throw PipelineStoppedException when awaited.</returns>
-        protected global::System.Threading.Tasks.Task ThrowTerminatingErrorAsync(
-            global::System.Management.Automation.ErrorRecord errorRecord,
-            global::System.Threading.CancellationToken cancellationToken)
+        [global::System.Diagnostics.CodeAnalysis.DoesNotReturn]
+        protected void ThrowTerminatingError(
+            global::System.Management.Automation.ErrorRecord errorRecord)
         {
-            return InvokeInPipelineThreadAsync(() =>
+            if (!_asyncHelper.InAsyncBlock)
             {
-                // ThrowTerminatingError never returns - it throws PipelineStoppedException
-                DangerousGetCmdlet().ThrowTerminatingError(errorRecord);
-            }, cancellationToken);
+                string msg = "Cannot throw a terminating error. This operation can only be called from within the " +
+                    "BeginAsync, ProcessAsync, or EndAsync methods. Access the PSCmdlet instance through DangerousGetCmdlet() " +
+                    "when outside of these methods.";
+                throw new global::System.InvalidOperationException(msg);
+            }
+
+            throw new global::Jborean.PwshAsync.PSAsyncThrowTerminatingException(errorRecord);
         }
 
         /// <summary>
@@ -479,8 +486,10 @@ namespace NamespaceReplaceMe
 
             if (!_asyncHelper.InAsyncBlock)
             {
-                throw new global::System.InvalidOperationException(
-                    "Cannot execute actions on the pipeline thread. This operation can only be called from within the BeginAsync, ProcessAsync, or EndAsync methods.");
+                string msg = "Cannot execute actions on the pipeline thread. This operation can only be called from within the " +
+                    "BeginAsync, ProcessAsync, or EndAsync methods. Access the PSCmdlet instance through DangerousGetCmdlet() " +
+                    "when outside of these methods.";
+                throw new global::System.InvalidOperationException(msg);
             }
 
             // No need to check IsStopping - if the pipeline is stopped via CompleteAdding(),

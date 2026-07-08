@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -9,7 +9,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Jborean.PwshAsync\Jborean.PwshAsync.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <!-- Use PackageReference when TestWithPackage property is set, otherwise use ProjectReference -->
+    <ProjectReference Include="..\..\src\Jborean.PwshAsync\Jborean.PwshAsync.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      Condition="'$(TestWithPackage)' != 'true'" />
+    <PackageReference Include="Jborean.PwshAsync"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      VersionOverride="$(PwshAsyncTestVersion)"
+                      Condition="'$(TestWithPackage)' == 'true'" />
   </ItemGroup>
 
 </Project>
