@@ -7,7 +7,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "cwd": "${workspaceFolder}",
-            "script": "${workspaceFolder}/tools/LaunchScript.ps1 -NoExit",
+            "script": "Import-Module -Name '${workspaceFolder}/tests/SampleCmdlet/bin/Debug/net10.0/SampleCmdlet.dll'; $Host.EnterNestedPrompt()",
             "attachDotnetDebugger": true,
             "createTemporaryIntegratedConsole": true,
         }

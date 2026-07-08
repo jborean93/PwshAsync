@@ -3,6 +3,19 @@ using namespace System.Management.Automation
 using namespace System.Management.Automation.Host
 using namespace System.Threading
 
+param (
+    [Parameter()]
+    [string]
+    [AllowNull()]
+    $ModuleConfiguration
+)
+
+# Don't set the default on the param to allow $null/unset to be the same as
+# 'Debug'.
+if (-not $ModuleConfiguration) {
+    $ModuleConfiguration = 'Debug'
+}
+
 Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -405,11 +418,17 @@ function Import-TestModule {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$ModuleName
+        [string]
+        $ModuleName,
+
+        [Parameter()]
+        [string]
+        [ValidateSet('Debug', 'Release', 'Package')]
+        $Configuration = 'Debug'
     )
 
     # Find the .csproj file
-    $csprojPath = Join-Path $PSScriptRoot "SampleCmdlet" "$ModuleName.csproj"
+    $csprojPath = Join-Path $PSScriptRoot $ModuleName "$ModuleName.csproj"
 
     if (-not (Test-Path $csprojPath)) {
         throw "Could not find project file at: $csprojPath"
@@ -417,14 +436,20 @@ function Import-TestModule {
 
     # Parse the .csproj to get TargetFramework
     [xml]$csproj = Get-Content $csprojPath
-    $targetFramework = $csproj.Project.PropertyGroup.TargetFramework
+    $targetFramework = $csproj.Project.PropertyGroup.TargetFrameworks
 
     if (-not $targetFramework) {
         throw "Could not determine TargetFramework from $csprojPath"
     }
 
-    # Build path to the DLL
-    $dllPath = Join-Path $PSScriptRoot "SampleCmdlet" "bin" "Debug" $targetFramework "$ModuleName.dll"
+    if ($Configuration -eq 'Package') {
+        $dllBasePath = Join-Path $PSScriptRoot '..' 'output' $ModuleName
+    }
+    else {
+        $dllBasePath = Join-Path $PSScriptRoot $ModuleName "bin" $Configuration
+    }
+
+    $dllPath = Join-Path $dllBasePath $targetFramework "$ModuleName.dll"
 
     if (-not (Test-Path $dllPath)) {
         throw "Module DLL not found at: $dllPath. Please build the project first with 'dotnet build'."
@@ -434,6 +459,8 @@ function Import-TestModule {
     Import-Module $dllPath -Force
 }
 
-if (-not (Get-Module -Name SampleCmdlet -ErrorAction Ignore)) {
-    Import-TestModule -ModuleName SampleCmdlet
+'SampleCmdlet' | ForEach-Object {
+    if (-not (Get-Module -Name $_ -ErrorAction Ignore)) {
+        Import-TestModule -ModuleName SampleCmdlet -Configuration $ModuleConfiguration
+    }
 }

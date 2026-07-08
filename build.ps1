@@ -30,27 +30,19 @@ $srcProject = Join-Path $repoRoot 'src/Jborean.PwshAsync/Jborean.PwshAsync.cspro
 $sampleProject = Join-Path $repoRoot 'tests/SampleCmdlet/SampleCmdlet.csproj'
 $testsDir = Join-Path $repoRoot 'tests'
 
-function Invoke-Build {
-    Write-Host "Building and packaging Jborean.PwshAsync..." -ForegroundColor Cyan
+function Build-Module {
+    param (
+        [Parameter(Mandatory)]
+        [string]
+        $ModuleName
+    )
 
-    # Ensure output directory exists
-    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
-
-    # Build and pack the source generator in one step
-    dotnet pack $srcProject -c $Configuration -o $outputDir --nologo
-    if ($LASTEXITCODE -ne 0) {
-        throw "Build failed"
-    }
-
-    $nupkg = Get-Item (Join-Path $outputDir '*.nupkg') | Select-Object -First 1
-    Write-Host "Created package: $($nupkg.Name)" -ForegroundColor Green
-}
-
-function Invoke-Test {
-    Write-Host "Running tests..." -ForegroundColor Cyan
-
-    # Ensure test results directory exists
-    New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
+    $csprojPath = Join-Path $PSScriptRoot 'tests' $ModuleName "$ModuleName.csproj"
+    [xml]$csharpProjectInfo = Get-Content $csprojPath
+    $targetFrameworks = @(
+        @($csharpProjectInfo.Project.PropertyGroup)[0].TargetFrameworks.Split(
+            ';', [StringSplitOptions]::RemoveEmptyEntries)
+    )
 
     if ($UsePackage) {
         Write-Host "Testing with NuGet package reference..." -ForegroundColor Yellow
@@ -76,14 +68,23 @@ function Invoke-Test {
             # Clean to ensure fresh restore with package
             dotnet clean $sampleProject --nologo --verbosity minimal | Out-Null
 
-            # Build with MSBuild properties to use PackageReference
-            dotnet build $sampleProject `
-                -c $Configuration `
-                -p:TestWithPackage=true `
-                -p:PwshAsyncTestVersion=$version `
-                --nologo
-            if ($LASTEXITCODE -ne 0) {
-                throw "SampleCmdlet build failed with package reference"
+            foreach ($framework in $targetFrameworks) {
+                Write-Host "Building SampleCmdlet for $framework with package reference..." -ForegroundColor Cyan
+
+                # Build with MSBuild properties to use PackageReference
+                $dotnetArgs = @(
+                    'publish', $sampleProject
+                    '-c', $Configuration
+                    '-f', $framework
+                    '-p:TestWithPackage=true'
+                    "-p:PwshAsyncTestVersion=$version"
+                    '--output', "$outputDir/SampleCmdlet/$framework"
+                    '--nologo'
+                )
+                dotnet @dotnetArgs
+                if ($LASTEXITCODE -ne 0) {
+                    throw "SampleCmdlet build failed for $framework with package reference"
+                }
             }
         }
         finally {
@@ -100,14 +101,49 @@ function Invoke-Test {
             throw "SampleCmdlet build failed"
         }
     }
+}
+
+function Invoke-Build {
+    Write-Host "Building and packaging Jborean.PwshAsync..." -ForegroundColor Cyan
+
+    # Ensure output directory exists
+    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+
+    # Build and pack the source generator in one step
+    dotnet pack $srcProject -c $Configuration -o $outputDir --nologo
+    if ($LASTEXITCODE -ne 0) {
+        throw "Build failed"
+    }
+
+    $nupkg = Get-Item (Join-Path $outputDir '*.nupkg') | Select-Object -First 1
+    Write-Host "Created package: $($nupkg.Name)" -ForegroundColor Green
+}
+
+function Invoke-Test {
+    Write-Host "Running tests..." -ForegroundColor Cyan
+
+    # Ensure test results directory exists
+    New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
+
+    Build-Module -ModuleName 'SampleCmdlet'
+
+    Import-Module -Name Pester -ErrorAction Stop
+
+    $pesterConfig = [PesterConfiguration]::Default
+    $pesterConfig.Output.Verbosity = 'Detailed'
+    $pesterConfig.Run.Throw = $true
+    $pesterConfig.TestResult.Enabled = $true
+    $pesterConfig.TestResult.OutputPath = (Join-Path $testResultsDir 'TestResults.xml')
+    $pesterConfig.TestResult.OutputFormat = 'NUnitXml'
+
+    $testContainer = New-PesterContainer -Path "$testsDir/*.Tests.ps1" -Data @{
+        ModuleConfiguration = $UsePackage ? 'Package' : $Configuration
+    }
+    $pesterConfig.Run.Container = $testContainer
 
     # Run Pester tests
     Write-Host "Running Pester tests..." -ForegroundColor Cyan
-
-    $testScript = Join-Path $repoRoot 'tools' 'PesterTest.ps1'
-    & $testScript -TestPath $testsDir -OutputFile (Join-Path $testResultsDir 'TestResults.xml')
-
-    Write-Host "All tests passed ($($result.TotalCount) total)" -ForegroundColor Green
+    Invoke-Pester -Configuration $pesterConfig -WarningAction Ignore -ErrorAction Stop
 }
 
 # Main execution

@@ -1,5 +1,7 @@
+param([string]$ModuleConfiguration)
+
 BeforeAll {
-    . "$PSScriptRoot/common.ps1"
+    . "$PSScriptRoot/common.ps1" -ModuleConfiguration $ModuleConfiguration
 }
 
 Describe 'Test-VerboseOutput' {
