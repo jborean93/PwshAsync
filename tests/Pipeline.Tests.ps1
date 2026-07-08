@@ -1,7 +1,9 @@
 using namespace System.Management.Automation
 
+param([string]$ModuleConfiguration)
+
 BeforeAll {
-    . "$PSScriptRoot/common.ps1"
+    . "$PSScriptRoot/common.ps1" -ModuleConfiguration $ModuleConfiguration
 }
 
 Describe 'Test-ValueFromPipeline' {
