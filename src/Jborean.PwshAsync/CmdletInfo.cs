@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
 namespace Jborean.PwshAsync;
@@ -8,9 +9,5 @@ internal record CmdletInfo(
     string Verb,
     string Noun,
     ImmutableArray<PropertyInfo> Properties,
-    string? ConfirmImpact,
-    string? DefaultParameterSetName,
-    string? HelpUri,
-    string? RemotingCapability,
-    string? SupportsPaging,
-    string? SupportsShouldProcess);
+    string CmdletAttributeArguments,  // Additional attribute arguments beyond verb/noun (e.g., ", ConfirmImpact = ...")
+    ImmutableArray<Diagnostic> Diagnostics);
