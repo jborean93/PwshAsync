@@ -79,6 +79,22 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
                 return;
             }
 
+            // Report any diagnostics collected during transform
+            bool hasErrors = false;
+            foreach (Diagnostic diagnostic in cmdletInfo.Diagnostics)
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error)
+                {
+                    hasErrors = true;
+                }
+                spc.ReportDiagnostic(diagnostic);
+            }
+
+            if (hasErrors)
+            {
+                return;
+            }
+
             string source = GeneratePSCmdletWrapper(cmdletInfo, replacementNamespace);
             spc.AddSource(
                 $"{cmdletInfo.ClassName}_PSCmdlet.g.cs",
@@ -125,6 +141,10 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             return null;
         }
 
+        // Collect diagnostics during validation
+        ImmutableArray<Diagnostic>.Builder diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
+        ValidateClass(classDecl, symbol, diagnosticsBuilder);
+
         // Get verb and noun from attribute
         ImmutableArray<AttributeData> attributes = context.Attributes;
         if (attributes.Length == 0)
@@ -138,41 +158,29 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             return null;
         }
 
-        string verb = attribute.ConstructorArguments[0].Value?.ToString() ?? "Get";
-        string noun = attribute.ConstructorArguments[1].Value?.ToString() ?? "Item";
-
-        // Extract named properties from the attribute
-        // Use ToCSharpString() to get the C# representation which handles enums, casts, etc.
-        string? confirmImpact = null;
-        string? defaultParameterSetName = null;
-        string? helpUri = null;
-        string? remotingCapability = null;
-        string? supportsPaging = null;
-        string? supportsShouldProcess = null;
-
-        foreach (var namedArg in attribute.NamedArguments)
+        // Verb and noun are required non-nullable constructor arguments
+        string? verb = attribute.ConstructorArguments[0].Value?.ToString();
+        string? noun = attribute.ConstructorArguments[1].Value?.ToString();
+        if (verb is null || noun is null)
         {
-            switch (namedArg.Key)
+            return null;
+        }
+
+        // Build the additional attribute arguments string (everything after verb and noun)
+        StringBuilder attrArgs = new();
+        foreach (KeyValuePair<string, TypedConstant> namedArg in attribute.NamedArguments)
+        {
+            attrArgs.Append(", ");
+            attrArgs.Append(namedArg.Key);
+            attrArgs.Append(" = ");
+
+            // Add global:: prefix for enums
+            string value = namedArg.Value.ToCSharpString();
+            if (namedArg.Value.Kind == TypedConstantKind.Enum && namedArg.Value.Type != null)
             {
-                case "ConfirmImpact":
-                    confirmImpact = namedArg.Value.ToCSharpString();
-                    break;
-                case "DefaultParameterSetName":
-                    defaultParameterSetName = namedArg.Value.ToCSharpString();
-                    break;
-                case "HelpUri":
-                    helpUri = namedArg.Value.ToCSharpString();
-                    break;
-                case "RemotingCapability":
-                    remotingCapability = namedArg.Value.ToCSharpString();
-                    break;
-                case "SupportsPaging":
-                    supportsPaging = namedArg.Value.ToCSharpString();
-                    break;
-                case "SupportsShouldProcess":
-                    supportsShouldProcess = namedArg.Value.ToCSharpString();
-                    break;
+                attrArgs.Append("global::");
             }
+            attrArgs.Append(value);
         }
 
         // Discover properties
@@ -184,12 +192,8 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             Verb: verb,
             Noun: noun,
             Properties: properties,
-            ConfirmImpact: confirmImpact,
-            DefaultParameterSetName: defaultParameterSetName,
-            HelpUri: helpUri,
-            RemotingCapability: remotingCapability,
-            SupportsPaging: supportsPaging,
-            SupportsShouldProcess: supportsShouldProcess);
+            CmdletAttributeArguments: attrArgs.ToString(),
+            Diagnostics: diagnosticsBuilder.ToImmutable());
     }
 
     private static ImmutableArray<PropertyInfo> DiscoverProperties(INamedTypeSymbol classSymbol)
@@ -201,8 +205,8 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
         // Walk up inheritance chain until PSAsyncCmdlet or object
         while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
         {
-            // Stop at PSAsyncCmdlet base
-            if (currentType.Name == "PSAsyncCmdlet" || currentType.Name == "PSAsyncCmdletBase")
+            // Stop at PSAsyncCmdlet base (user-facing base class)
+            if (currentType.Name == "PSAsyncCmdlet")
             {
                 break;
             }
@@ -330,11 +334,7 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
 
     private static string FormatTypedConstant(TypedConstant constant)
     {
-        if (constant.IsNull)
-        {
-            return "null";
-        }
-
+        // ToCSharpString() handles most cases correctly, but we need special handling for arrays
         if (constant.Kind == TypedConstantKind.Array)
         {
             // Handle array values (e.g., ValidateSet values)
@@ -347,27 +347,8 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
             return $"new[] {{ {string.Join(", ", formattedValues)} }}";
         }
 
-        if (constant.Kind == TypedConstantKind.Enum && constant.Type != null)
-        {
-            return $"global::{constant.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted))}.{constant.Value}";
-        }
-
-        if (constant.Type?.SpecialType == SpecialType.System_String)
-        {
-            return $"\"{constant.Value}\"";
-        }
-
-        if (constant.Kind == TypedConstantKind.Type)
-        {
-            return $"typeof(global::{constant.Value})";
-        }
-
-        if (constant.Type?.SpecialType == SpecialType.System_Boolean)
-        {
-            return constant.Value?.ToString()?.ToLowerInvariant() ?? "false";
-        }
-
-        return constant.Value?.ToString() ?? "null";
+        // ToCSharpString() handles: null, enums, strings, booleans, typeof, primitives
+        return constant.ToCSharpString();
     }
 
     private static string GeneratePSCmdletWrapper(CmdletInfo cmdlet, string generatedNamespace)
@@ -385,36 +366,8 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
         sb.AppendLine("{");
 
         // The actual PSCmdlet that PowerShell loads
-        sb.Append($"    [global::System.Management.Automation.Cmdlet(\"{cmdlet.Verb}\", \"{cmdlet.Noun}\"");
-
-        // Add optional CmdletAttribute properties if set
-        // Use ToCSharpString() values directly - they're already properly formatted C# code
-        if (cmdlet.ConfirmImpact is not null)
-        {
-            sb.Append($", ConfirmImpact = global::{cmdlet.ConfirmImpact}");
-        }
-        if (cmdlet.DefaultParameterSetName != null)
-        {
-            sb.Append($", DefaultParameterSetName = {cmdlet.DefaultParameterSetName}");
-        }
-        if (cmdlet.HelpUri != null)
-        {
-            sb.Append($", HelpUri = {cmdlet.HelpUri}");
-        }
-        if (cmdlet.RemotingCapability != null)
-        {
-            sb.Append($", RemotingCapability = global::{cmdlet.RemotingCapability}");
-        }
-        if (cmdlet.SupportsPaging != null)
-        {
-            sb.Append($", SupportsPaging = {cmdlet.SupportsPaging}");
-        }
-        if (cmdlet.SupportsShouldProcess != null)
-        {
-            sb.Append($", SupportsShouldProcess = {cmdlet.SupportsShouldProcess}");
-        }
-
-        sb.AppendLine(")]");
+        sb.Append($"    [global::System.Management.Automation.Cmdlet(\"{cmdlet.Verb}\", \"{cmdlet.Noun}\"{cmdlet.CmdletAttributeArguments})]");
+        sb.AppendLine();
         sb.AppendLine($"    public sealed class {cmdlet.ClassName}_PSCmdlet");
         sb.AppendLine($"        : global::{generatedNamespace}.PSAsyncCmdletBase<{cmdlet.ClassName}>");
         sb.AppendLine("    {");
@@ -553,5 +506,158 @@ public class PSAsyncCmdletGenerator : IIncrementalGenerator
         sb.AppendLine("}");
 
         return SourceText.From(sb.ToString(), Encoding.UTF8);
+    }
+
+    private static void ValidateClass(
+        ClassDeclarationSyntax classDecl,
+        INamedTypeSymbol symbol,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        // Check if class is partial
+        bool hasPartialModifier = false;
+        foreach (SyntaxToken modifier in classDecl.Modifiers)
+        {
+            if (modifier.IsKind(SyntaxKind.PartialKeyword))
+            {
+                hasPartialModifier = true;
+                break;
+            }
+        }
+
+        if (!hasPartialModifier)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ClassMustBePartial,
+                classDecl.Identifier.GetLocation(),
+                symbol.Name));
+        }
+
+        // Check if class is abstract
+        if (symbol.IsAbstract)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ClassMustNotBeAbstract,
+                classDecl.Identifier.GetLocation(),
+                symbol.Name));
+        }
+
+        // Check if class is static
+        if (symbol.IsStatic)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ClassMustNotBeStatic,
+                classDecl.Identifier.GetLocation(),
+                symbol.Name));
+        }
+
+        // Check if class is public
+        if (symbol.DeclaredAccessibility != Accessibility.Public)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ClassMustBePublic,
+                classDecl.Identifier.GetLocation(),
+                symbol.Name));
+        }
+
+        // Check if class is nested
+        if (symbol.ContainingType != null)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ClassMustNotBeNested,
+                classDecl.Identifier.GetLocation(),
+                symbol.Name));
+        }
+
+        // Check if class inherits from PSAsyncCmdlet or PSAsyncCmdlet<T>
+        if (!InheritsFromPSAsyncCmdlet(symbol))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ClassMustInheritPSAsyncCmdlet,
+                classDecl.Identifier.GetLocation(),
+                symbol.Name));
+        }
+
+        // Validate parameter properties
+        ValidateParameterProperties(symbol, diagnostics);
+    }
+
+    private static bool InheritsFromPSAsyncCmdlet(INamedTypeSymbol symbol)
+    {
+        INamedTypeSymbol? currentType = symbol.BaseType;
+        while (currentType != null)
+        {
+            if (currentType.Name == "PSAsyncCmdlet")
+            {
+                return true;
+            }
+            currentType = currentType.BaseType;
+        }
+        return false;
+    }
+
+    private static void ValidateParameterProperties(INamedTypeSymbol symbol, ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        INamedTypeSymbol? currentType = symbol;
+
+        while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
+        {
+            // Stop at PSAsyncCmdlet base
+            if (currentType.Name == "PSAsyncCmdlet")
+            {
+                break;
+            }
+
+            foreach (ISymbol member in currentType.GetMembers())
+            {
+                if (member is not IPropertySymbol property)
+                {
+                    continue;
+                }
+
+                // Check if property has [Parameter] attribute
+                bool hasParameterAttribute = false;
+                foreach (AttributeData attr in property.GetAttributes())
+                {
+                    if (attr.AttributeClass?.Name == "ParameterAttribute")
+                    {
+                        hasParameterAttribute = true;
+                        break;
+                    }
+                }
+
+                if (!hasParameterAttribute)
+                {
+                    continue;
+                }
+
+                // Validate parameter property has simple get; set;
+                // Allow auto-properties (with or without initializers) but not custom logic or init-only setters
+                bool hasGetter = property.GetMethod != null;
+                bool hasSetter = property.SetMethod != null && !property.SetMethod.IsInitOnly;
+
+                // Check if getter/setter have custom implementations (not auto-implemented)
+                bool getterHasBody = property.GetMethod != null &&
+                    (property.GetMethod.DeclaringSyntaxReferences.Length > 0 &&
+                     property.GetMethod.DeclaringSyntaxReferences[0].GetSyntax() is AccessorDeclarationSyntax getterSyntax &&
+                     getterSyntax.Body != null);
+                bool setterHasBody = property.SetMethod != null &&
+                    (property.SetMethod.DeclaringSyntaxReferences.Length > 0 &&
+                     property.SetMethod.DeclaringSyntaxReferences[0].GetSyntax() is AccessorDeclarationSyntax setterSyntax &&
+                     setterSyntax.Body != null);
+
+                if (!hasGetter || !hasSetter || getterHasBody || setterHasBody)
+                {
+                    if (property.Locations.Length > 0)
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            Diagnostics.ParameterPropertyMustHaveSimpleAccessors,
+                            property.Locations[0],
+                            property.Name));
+                    }
+                }
+            }
+
+            currentType = currentType.BaseType;
+        }
     }
 }

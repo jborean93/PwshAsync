@@ -1,0 +1,73 @@
+using System.Management.Automation;
+using System.Threading;
+using System.Threading.Tasks;
+using Jborean.PwshAsync;
+
+namespace SampleCmdlet;
+
+// This file contains intentionally invalid code to test diagnostics
+// Rename to .cs to test the diagnostics
+
+// ERROR: PWSHASYNC001 - Missing partial keyword
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "NotPartial")]
+public class TestNotPartial : PSAsyncCmdlet<string>
+{
+    protected override Task ProcessAsync(CancellationToken cancellationToken)
+    {
+        return WriteAsync("test", cancellationToken);
+    }
+}
+
+// ERROR: PWSHASYNC004 - Abstract class
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "AbstractClass")]
+public abstract partial class TestAbstractClass : PSAsyncCmdlet<string>
+{
+}
+
+// ERROR: PWSHASYNC006 - Not public
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "NotPublic")]
+internal partial class TestNotPublic : PSAsyncCmdlet<string>
+{
+    protected override Task ProcessAsync(CancellationToken cancellationToken)
+    {
+        return WriteAsync("test", cancellationToken);
+    }
+}
+
+// ERROR: PWSHASYNC002 - Doesn't inherit from PSAsyncCmdlet
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "NoInheritance")]
+public partial class TestNoInheritance
+{
+}
+
+// ERROR: PWSHASYNC007 - Property with custom getter
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "CustomGetter")]
+public partial class TestCustomGetter : PSAsyncCmdlet<string>
+{
+    private string _name = "";
+
+    [Parameter]
+    public string Name
+    {
+        get => _name.ToUpper();  // Custom logic - not allowed
+        set => _name = value;
+    }
+
+    protected override Task ProcessAsync(CancellationToken cancellationToken)
+    {
+        return WriteAsync(Name, cancellationToken);
+    }
+}
+
+// ERROR: PWSHASYNC007 - Init-only property
+[PSAsyncCmdlet(VerbsDiagnostic.Test, "InitOnly")]
+public partial class TestInitOnly : PSAsyncCmdlet<string>
+{
+    [Parameter]
+    public string Name { get; init; } = "";  // init not allowed
+
+    protected override Task ProcessAsync(CancellationToken cancellationToken)
+    {
+        return WriteAsync(Name, cancellationToken);
+    }
+}
