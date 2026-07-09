@@ -16,14 +16,11 @@
     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
 
-  <!-- NuGet package info -->
+  <!-- NuGet package info (project-specific overrides) -->
   <PropertyGroup>
-    <Title>Jborean.PwshAsync</Title>
     <Description>Jborean.PwshAsync provides generated PSCmdlet implementations for async friendly PowerShell cmdlets.</Description>
-    <PackageId>Jborean.PwshAsync</PackageId>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/jborean93/Jborean.PwshAsync/</PackageProjectUrl>
     <DevelopmentDependency>true</DevelopmentDependency>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,6 +37,7 @@
   <ItemGroup>
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true"
         PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
