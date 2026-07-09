@@ -133,7 +133,7 @@ function Invoke-Test {
     $pesterConfig.Output.Verbosity = 'Detailed'
     $pesterConfig.Run.Throw = $true
     $pesterConfig.TestResult.Enabled = $true
-    $pesterConfig.TestResult.OutputPath = (Join-Path $testResultsDir 'TestResults.xml')
+    $pesterConfig.TestResult.OutputPath = (Join-Path $testResultsDir 'Pester.xml')
     $pesterConfig.TestResult.OutputFormat = 'NUnitXml'
 
     $testContainer = New-PesterContainer -Path "$testsDir/*.Tests.ps1" -Data @{

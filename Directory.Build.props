@@ -4,4 +4,17 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <!-- Package metadata - applied to all projects that generate packages -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>Jordan Borean</Authors>
+    <Company>Jordan Borean</Company>
+    <Copyright>Copyright (c) Jordan Borean</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/jborean93/PwshAsync</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jborean93/PwshAsync.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>powershell;roslyn;source-generator;async;cmdlet</PackageTags>
+  </PropertyGroup>
 </Project>
